@@ -1,8 +1,10 @@
 # coding: utf8
 
+import time
 from abc import ABCMeta, abstractmethod
+from concurrent.futures import Future
 
-__all__ = ["BaseError", "ShutedDownError", "TaskItem", "Executor"]
+__all__ = ["BaseError", "ShutedDownError", "AsyncResult", "TaskItem", "Executor"]
 
 
 class BaseError(Exception):
@@ -20,19 +22,37 @@ class ShutedDownError(BaseError):
     pass
 
 
+class AsyncResult(Future):
+    def __init__(self, *a, **kw):
+        super(self.__class__, self).__init__(*a, **kw)
+        self._time_info = {}
+
+    @property
+    def time_info(self):
+        return self._time_info
+
+    def set_time_info(self, key, timestamp=None):
+        self._time_info[key] = timestamp or time.time()
+        return self
+
+    def update_time_info(self, time_info):
+        self._time_info.update(time_info)
+        return self
+
+
 class TaskItem(object):
     """
     每个task item包含：
         可调用对象，
         元组参数，
         关键字参数，
-        保存执行结果的Future对象
+        保存任务执行结果的AsyncResult对象
     """
-    def __init__(self, function, args, kwargs, future):
+    def __init__(self, function, args, kwargs, async_result):
         self._function = function
         self._args = args
         self._kwargs = kwargs
-        self._future = future
+        self._async_result = async_result
 
     @property
     def function(self):
@@ -47,8 +67,8 @@ class TaskItem(object):
         return self._kwargs
 
     @property
-    def future(self):
-        return self._future
+    def async_result(self):
+        return self._async_result
 
 
 class Executor(object):

@@ -5,7 +5,6 @@ import uuid
 import tornado.gen as gen
 from tornado.queues import QueueEmpty, QueueFull
 from tornado.locks import Condition
-from tornado.concurrent import is_future, Future
 from .executor import *
 
 LOGGER = logging.getLogger(__name__)
@@ -52,13 +51,16 @@ class TornadoCoroutineExecutor(Executor):
                     coroutine_name)
                 continue
 
+            async_result = task_item.async_result
+            async_result.set_time_info("consumed_from_queue_at")
+            time_info_key = "executed_completion_at"
             try:
                 result = yield task_item.function(
                     *task_item.args,
                     **task_item.kwargs)
-                task_item.future.set_result(result)
+                async_result.set_time_info(time_info_key).set_result(result)
             except Exception as ex:
-                task_item.future.set_exception(ex)
+                async_result.set_time_info(time_info_key).set_exception(ex)
 
         LOGGER.info("coroutine: %s is stopped" % coroutine_name)
         self._core_coroutines.pop(ind)
@@ -68,19 +70,20 @@ class TornadoCoroutineExecutor(Executor):
             self._core_coroutines_condition.notify_all()
 
     def submit_task(self, function, *args, **kwargs):
-        future = Future()
+        async_result = AsyncResult()
         if self._shutting_down or self._shuted_down:
-            future.set_exception(ShutedDownError(self._coroutine_pool_name))
-            return future
+            async_result.set_exception(ShutedDownError(self._coroutine_pool_name))
+            return async_result
         if not gen.is_coroutine_function(function):
-            future.set_exception(RuntimeError(
+            async_result.set_exception(RuntimeError(
                 "function must be tornado coroutine function"))
-            return future
+            return async_result
 
         is_full = False
-        task_item = TaskItem(function, args, kwargs, future)
+        task_item = TaskItem(function, args, kwargs, async_result)
         try:
             self._queue.put_nowait(task_item)
+            async_result.set_time_info("submitted_to_queue_at")
         except QueueFull:
             is_full = True
 
@@ -88,7 +91,7 @@ class TornadoCoroutineExecutor(Executor):
             return self._reject_handler(self._queue, task_item)
         else:
             self._core_coroutines_wait_condition.notify()
-            return future
+            return async_result
 
     @gen.coroutine
     def shutdown(self, wait_time=None):
@@ -96,6 +99,7 @@ class TornadoCoroutineExecutor(Executor):
             raise gen.Return()
 
         self._shutting_down = True
+        self._shuted_down = False
 
         LOGGER.info("begin to notify all coroutines")
         self._core_coroutines_wait_condition.notify_all()
@@ -108,7 +112,7 @@ class TornadoCoroutineExecutor(Executor):
             except QueueEmpty:
                 break
             else:
-                task_item.future.set_exception(
+                task_item.async_result.set_exception(
                     ShutedDownError(self._coroutine_pool_name))
 
         self._shutting_down = False

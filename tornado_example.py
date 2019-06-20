@@ -34,12 +34,14 @@ def test():
         LOGGER.info("status code is: %d" % resp.code)
 
     url = "http://n.sinaimg.cn/test/320/w640h480/20190429/aabb-hwfpcxm9388795.jpg"
-    fs = []
+    ars = []
     for i in range(100):
-        f = download(url)
-        fs.append(download(url))
+        ar = download(url)
+        ars.append(ar)
         yield sleep(0.05)
-    yield fs
+    yield ars
+    for ar in ars:
+        LOGGER.info(ar.time_info)
     yield tce.shutdown()
     LOGGER.info("stop IOLoop")
     IOLoop.instance().stop()

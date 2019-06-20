@@ -4,8 +4,8 @@ import logging
 import time
 from functools import partial
 import random
-from concurrent.futures import Future
 from .window import WindowHalfOpenError, WindowClosedError, WindowStatus, Window
+from .executor import *
 
 LOGGER = logging.getLogger(__name__)
 
@@ -74,46 +74,50 @@ class Cabin(object):
         return self._window
 
     def execute(self, f, *a, **kw):
-        cabin_future = Future()
+        cabin_async_result = AsyncResult()
         current_timestamp = time.time()
         window_status = self._window.get_status(current_timestamp)
         if window_status is None:
             LOGGER.error("invalid timestamp: %f" % current_timestamp)
         elif window_status == WindowStatus.CLOSED:
-            cabin_future.set_exception(WindowClosedError(self._name))
-            return cabin_future
+            cabin_async_result.set_exception(WindowClosedError(self._name))
+            return cabin_async_result
         elif window_status == WindowStatus.HALF_OPEN:
             if self._half_open_probability == 0:
-                cabin_future.set_exception(WindowHalfOpenError(self._name))
-                return cabin_future
+                cabin_async_result.set_exception(WindowHalfOpenError(self._name))
+                return cabin_async_result
             elif self._half_open_probability == 1:
                 pass
             else:
                 if random.random() > self._half_open_probability:
-                    cabin_future.set_exception(WindowHalfOpenError(self._name))
-                    return cabin_future
+                    cabin_async_result.set_exception(WindowHalfOpenError(self._name))
+                    return cabin_async_result
 
+        cabin_async_result.set_time_info("putted_into_cabin_at")
         # 提交任务
         try:
-            future = self._executor.submit_task(f, *a, **kw)
+            executor_async_result = self._executor.submit_task(f, *a, **kw)
         except Exception as exc:
-            cabin_future.set_exception(SubmitTaskError(exc))
-            return cabin_future
+            cabin_async_result.set_exception(SubmitTaskError(exc))
+            return cabin_async_result
 
-        future.add_done_callback(
-            partial(self._done_callback, cabin_future)
+        executor_async_result.add_done_callback(
+            partial(self._done_callback, cabin_async_result)
         )
-        return cabin_future
+        return cabin_async_result
 
-    def _done_callback(self, cabin_future, future):
+    def _done_callback(self, cabin_async_result, executor_async_result):
+        cabin_async_result.set_time_info("left_cabin_at")
+        cabin_async_result.update_time_info(executor_async_result.time_info)
+
         timestamp = time.time()
-        exc_value = future.exception()
+        exc_value = executor_async_result.exception()
         if exc_value is None:
             self._window.update_status(timestamp, 1, 0)
-            cabin_future.set_result(future.result())
+            cabin_async_result.set_result(executor_async_result.result())
         else:
             self._window.update_status(timestamp, 0, 1)
-            cabin_future.set_exception(exc_value)
+            cabin_async_result.set_exception(exc_value)
 
 
 class CabinBuilder(object):

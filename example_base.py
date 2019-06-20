@@ -29,9 +29,8 @@ def create_cabin(executor):
 
 # 创建DegredationStrategy
 class TestDegredationStrategy(DegredationStrategy):
-    def on_submit_task_error(self, f, a, kw):
-        LOGGER.error("submit task error while invoking %s(*%s, **%s)"
-            % (f.__name__, a, kw))
+    def on_submit_task_error(self, exc, f, a, kw):
+        LOGGER.error("submit task error: %s(%s)" % (exc.__class__, str(exc)))
 
     def on_window_half_open(self, f, a, kw):
         LOGGER.error("window was half open while invoking %s(*%s, **%s)"

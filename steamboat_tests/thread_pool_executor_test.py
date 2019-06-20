@@ -14,7 +14,7 @@ class ThreadPoolExecutorTest(unittest.TestCase):
         def reject_handler(queue, task_item):
             LOGGER.debug("reject_handler is invoked")
             queue.put(task_item)
-            return task_item.future
+            return task_item.async_result
 
         def function(ind):
             time.sleep(random.random())

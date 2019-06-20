@@ -7,7 +7,7 @@ class DegredationStrategy(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def on_submit_task_error(self, func, a, kw):
+    def on_submit_task_error(self, exc, func, a, kw):
         pass
 
     @abstractmethod

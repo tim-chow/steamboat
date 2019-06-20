@@ -28,13 +28,14 @@ def test():
         LOGGER.info("status code is: %d" % resp.status_code)
 
     url = "http://n.sinaimg.cn/test/320/w640h480/20190429/aabb-hwfpcxm9388795.jpg"
-    fs = []
+    ars = []
     for i in range(100):
-        f = download(url)
-        fs.append(download(url))
+        ar = download(url)
+        ars.append(ar)
         time.sleep(0.05)
-    for f in fs:
-        f.result()
+    for ar in ars:
+        ar.result()
+        LOGGER.info(ar.time_info)
     tpe.shutdown()
 
 if __name__ == "__main__":

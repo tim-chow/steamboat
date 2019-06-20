@@ -4,7 +4,6 @@ import logging
 import uuid
 import threading
 from Queue import Full, Empty
-from concurrent.futures import Future
 from .executor import *
 
 LOGGER = logging.getLogger(__name__)
@@ -69,15 +68,17 @@ class ThreadPoolExecutor(Executor):
                 LOGGER.debug("thread: %s was woken up from waiting pool" % thread_name)
                 continue
 
-            future = task_item.future
+            async_result = task_item.async_result
+            async_result.set_time_info("consumed_from_queue_at")
+            time_info_key = "executed_completion_at"
             try:
                 result = task_item.function(
                     *task_item.args,
                     **task_item.kwargs)
             except BaseException as ex:
-                future.set_exception(ex)
+                async_result.set_time_info(time_info_key).set_exception(ex)
             else:
-                future.set_result(result)
+                async_result.set_time_info(time_info_key).set_result(result)
 
         LOGGER.info("thread: %s is stopped" % thread_name)
         with self._core_threads_condition:
@@ -88,19 +89,20 @@ class ThreadPoolExecutor(Executor):
                 self._core_threads_condition.notify_all()
 
     def submit_task(self, function, *args, **kwargs):
-        future = Future()
+        async_result = AsyncResult()
         if self._shutting_down or self._shuted_down:
-            future.set_exception(ShutedDownError(self._thread_pool_name))
-            return future
+            async_result.set_exception(ShutedDownError(self._thread_pool_name))
+            return async_result
 
         is_full = False
-        task_item = TaskItem(function, args, kwargs, future)
+        task_item = TaskItem(function, args, kwargs, async_result)
         with self._shutdown_lock:
             if self._shutting_down or self._shuted_down:
-                future.set_exception(ShutedDownError(self._thread_pool_name))
-                return future
+                async_result.set_exception(ShutedDownError(self._thread_pool_name))
+                return async_result
             try:
                 self._queue.put_nowait(task_item)
+                async_result.set_time_info("submitted_to_queue_at")
             except Full:
                 is_full = True
 
@@ -109,7 +111,7 @@ class ThreadPoolExecutor(Executor):
         else:
             with self._core_threads_wait_condition:
                 self._core_threads_wait_condition.notify()
-            return future
+            return async_result
 
     def shutdown(self, wait_time=None):
         if self._shutting_down or self._shuted_down:
@@ -132,7 +134,7 @@ class ThreadPoolExecutor(Executor):
             except Empty:
                 break
             else:
-                task_item.future.set_exception(
+                task_item.async_result.set_exception(
                     ShutedDownError(self._thread_pool_name))
 
         self._shutting_down = False
