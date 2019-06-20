@@ -49,6 +49,9 @@ class SteamBoat(object):
             return _innest
         return _inner
 
+    def submit_task(self, cabin_name, f, *a, **kw):
+        return self.push_into_cabin(cabin_name)(f)(*a, **kw)
+
     def _done_callback(self,
                        steamboat_async_result,
                        cabin_name,

@@ -71,6 +71,11 @@ class SteamBoatTest(TestCase):
             else:
                 LOGGER.info(f.result())
 
+        ar = self._steamboat.submit_task("cabin",
+            lambda : time.sleep(random.random()))
+        ar.result()
+        LOGGER.info(ar.time_info)
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG, 
         format="[%(asctime)s] [%(filename)s:%(lineno)d] %(msg)s",
