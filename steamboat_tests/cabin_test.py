@@ -11,16 +11,17 @@ LOGGER = logging.getLogger(__name__)
 
 
 class CabinTest(TestCase):
-    def testCabin(self):
+    def setUp(self):
         def reject_handler(queue, item):
             raise Full
 
-        thread_pool_executor = ThreadPoolExecutor(
+        self._thread_pool_executor = ThreadPoolExecutor(
             3, Queue(6), reject_handler)
 
-        cabin_test = CabinBuilder() \
-            .with_name("cabin-test") \
-            .with_executor(thread_pool_executor) \
+        self._cabin = CabinBuilder() \
+            .with_name("cabin") \
+            .with_executor(self._thread_pool_executor) \
+            .with_timeout(0.5) \
             .with_open_length(10) \
             .with_closed_length(2) \
             .with_half_open_length(3) \
@@ -30,6 +31,19 @@ class CabinTest(TestCase):
             .with_half_open_probability(0.5) \
             .build()
 
+    def testTimeout(self):
+        def sleep_for_a_moment(seconds):
+            time.sleep(seconds)
+        ars = []
+        for _ in range(10):
+            ar = self._cabin.execute(sleep_for_a_moment, 0.6)
+            ars.append(ar)
+        for ar in ars:
+            LOGGER.info("time info: %s" % ar.time_info)
+            exc = ar.exception()
+            LOGGER.info("exception: %s(%s)" % (exc.__class__, str(exc)))
+
+    def testCabin(self):
         def err_func(count):
             raise RuntimeError("err_func: %d" % count)
 
@@ -39,7 +53,7 @@ class CabinTest(TestCase):
         LOGGER.info("start time: %s" % datetime.datetime.now())
         futures = []
         for ind in range(10):
-            future = cabin_test.execute(err_func, ind)
+            future = self._cabin.execute(err_func, ind)
             futures.append(future)
         for future in futures:
             LOGGER.info(future)
@@ -52,7 +66,7 @@ class CabinTest(TestCase):
 
         futures = []
         for ind in range(10):
-            future = cabin_test.execute(func, ind)
+            future = self._cabin.execute(func, ind)
             futures.append(future)
 
         for future in futures:
@@ -62,7 +76,9 @@ class CabinTest(TestCase):
             except:
                 LOGGER.error(future.exception())
 
-        thread_pool_executor.shutdown()
+    def tearDown(self):
+        self._thread_pool_executor.shutdown()
+        self._cabin.shutdown()
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG, 

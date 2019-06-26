@@ -2,6 +2,8 @@
 
 import time
 from abc import ABCMeta, abstractmethod
+import itertools
+import threading
 from concurrent.futures import Future
 
 __all__ = ["BaseError", "ShutedDownError", "AsyncResult", "TaskItem", "Executor"]
@@ -23,9 +25,19 @@ class ShutedDownError(BaseError):
 
 
 class AsyncResult(Future):
-    def __init__(self, *a, **kw):
+    counter = itertools.count().next
+    lock = threading.Lock()
+
+    def __init__(self, deadline=None, *a, **kw):
         super(self.__class__, self).__init__(*a, **kw)
         self._time_info = {}
+        self._ident = self.generate_ident()
+        self._deadline = deadline
+
+    @classmethod
+    def generate_ident(cls):
+        with cls.lock:
+            return cls.counter()
 
     @property
     def time_info(self):
@@ -38,6 +50,31 @@ class AsyncResult(Future):
     def update_time_info(self, time_info):
         self._time_info.update(time_info)
         return self
+
+    @property
+    def ident(self):
+        return self._ident
+
+    @property
+    def deadline(self):
+        return self._deadline
+
+    @deadline.setter
+    def deadline(self, deadline):
+        self._deadline = deadline
+
+    def __cmp__(self, obj):
+        if not isinstance(obj, self.__class__):
+            return 1
+        if obj.deadline == self.deadline:
+            return 0
+        if obj.deadline == None:
+            return -1
+        if self.deadline == None:
+            return 1
+        if obj.deadline < self.deadline:
+            return 1
+        return -1
 
 
 class TaskItem(object):

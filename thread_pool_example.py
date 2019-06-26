@@ -37,6 +37,7 @@ def test():
         ar.result()
         LOGGER.info(ar.time_info)
     tpe.shutdown()
+    cabin.shutdown()
 
 if __name__ == "__main__":
     test()

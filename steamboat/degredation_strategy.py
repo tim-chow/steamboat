@@ -19,6 +19,10 @@ class DegredationStrategy(object):
         pass
 
     @abstractmethod
+    def on_timeout_reached(self, func, a, kw):
+        pass
+
+    @abstractmethod
     def on_exception(self, exc, func, a, kw):
         pass
 

@@ -1,7 +1,7 @@
 # coding: utf8
 
 from functools import partial
-from .cabin import SubmitTaskError
+from .cabin import SubmitTaskError, TimeoutReached
 from .window import WindowHalfOpenError, WindowClosedError
 from .executor import *
 
@@ -37,7 +37,7 @@ class SteamBoat(object):
             def _innest(*a, **kw):
                 steamboat_async_result = AsyncResult()
                 steamboat_async_result.set_time_info("putted_into_steamboat_at")
-                cabin_async_result = cabin.execute(f, *a, **kw)
+                cabin_async_result = cabin.submit_task(f, *a, **kw)
                 cabin_async_result.add_done_callback(partial(
                     self._done_callback,
                     steamboat_async_result,
@@ -82,6 +82,8 @@ class SteamBoat(object):
             method = ds.on_window_half_open
         elif isinstance(exception, WindowClosedError):
             method = ds.on_window_closed
+        elif isinstance(exception, TimeoutReached):
+            method = ds.on_timeout_reached
         else:
             method = ds.on_exception
             args = (exception, ) + args

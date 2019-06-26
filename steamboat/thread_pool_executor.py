@@ -64,12 +64,16 @@ class ThreadPoolExecutor(Executor):
             except Empty:
                 LOGGER.debug("thread: %s will enter into waiting pool" % thread_name)
                 with self._core_threads_wait_condition:
+                    if self._shutting_down or self._shuted_down:
+                        break
                     self._core_threads_wait_condition.wait()
                 LOGGER.debug("thread: %s was woken up from waiting pool" % thread_name)
                 continue
 
             async_result = task_item.async_result
             async_result.set_time_info("consumed_from_queue_at")
+            if not async_result.set_running_or_notify_cancel():
+                continue
             time_info_key = "executed_completion_at"
             try:
                 result = task_item.function(

@@ -24,6 +24,10 @@ class TestDegredationStrategy(DegredationStrategy):
         LOGGER.error("window was closed while invoking %s(*%s, **%s)"
             % (f.__name__, a, kw))
 
+    def on_timeout_reached(self, f, a, kw):
+        LOGGER.error("timeout was reached while invoking %s(*%s, **%s)"
+            % (f.__name__, a, kw))
+
     def on_exception(self, exc, f, a, kw):
         LOGGER.error("expcetion: [%s] was raised while invoking %s(*%s, **%s)"
             % (exc, f.__name__, a, kw))

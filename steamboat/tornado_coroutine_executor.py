@@ -46,6 +46,8 @@ class TornadoCoroutineExecutor(Executor):
             except QueueEmpty:
                 LOGGER.debug("coroutine: %s will enter into waiting pool" %
                     coroutine_name)
+                if self._shutting_down or self._shuted_down:
+                    break
                 yield self._core_coroutines_wait_condition.wait()
                 LOGGER.debug("coroutine: %s was woken up from waiting pool" %
                     coroutine_name)
@@ -53,6 +55,8 @@ class TornadoCoroutineExecutor(Executor):
 
             async_result = task_item.async_result
             async_result.set_time_info("consumed_from_queue_at")
+            if not async_result.set_running_or_notify_cancel():
+                continue
             time_info_key = "executed_completion_at"
             try:
                 result = yield task_item.function(

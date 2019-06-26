@@ -43,6 +43,7 @@ def test():
     for ar in ars:
         LOGGER.info(ar.time_info)
     yield tce.shutdown()
+    cabin.shutdown()
     LOGGER.info("stop IOLoop")
     IOLoop.instance().stop()
 
