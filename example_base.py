@@ -3,17 +3,19 @@
 import logging
 
 from steamboat.cabin import CabinBuilder
-from steamboat.degredation_strategy import DegredationStrategy
+from steamboat.degradation_strategy import DegradationStrategy
 from steamboat.steamboat import SteamBoat
 
-logging.basicConfig(level=logging.INFO, 
-    format="[%(asctime)s] [%(filename)s:%(lineno)d] %(msg)s",
-    datefmt="%F %T")
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="[%(asctime)s] %(filename)s:%(lineno)d %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S")
 
 LOGGER = logging.getLogger(__name__)
 
+
 def create_cabin(executor):
-    # 创建Cabin
+    # 创建 Cabin
     cabin = CabinBuilder() \
         .with_name("cabin") \
         .with_executor(executor) \
@@ -27,8 +29,8 @@ def create_cabin(executor):
     return cabin
 
 
-# 创建DegredationStrategy
-class TestDegredationStrategy(DegredationStrategy):
+# 创建 DegradationStrategy
+class TestDegradationStrategy(DegradationStrategy):
     def on_submit_task_error(self, exc, f, a, kw):
         LOGGER.error("submit task error: %s(%s)" % (exc.__class__, str(exc)))
 
@@ -45,12 +47,13 @@ class TestDegredationStrategy(DegredationStrategy):
             % (f.__name__, a, kw))
 
     def on_exception(self, exc, f, a, kw):
-        LOGGER.error("expcetion: [%s] was raised while invoking %s(*%s, **%s)"
+        LOGGER.error("exception: [%s] was raised while invoking %s(*%s, **%s)"
             % (exc, f.__name__, a, kw))
 
-def create_steamboat(cabin, degredation_strategy):
+
+def create_steamboat(cabin, degradation_strategy):
     # 创建SteamBoat
     steamboat = SteamBoat()
-    steamboat.add_cabin(cabin, degredation_strategy)
+    steamboat.add_cabin(cabin, degradation_strategy)
     return steamboat
 

@@ -1,7 +1,8 @@
 # coding: utf8
 
 from functools import partial
-from .cabin import SubmitTaskError, TimeoutReached
+
+from .cabin import SubmitTaskError, TimeoutReachedError
 from .window import WindowHalfOpenError, WindowClosedError
 from .executor import *
 
@@ -9,32 +10,32 @@ from .executor import *
 class SteamBoat(object):
     def __init__(self):
         self._cabins = {}
-        self._degredation_strategies = {}
+        self._degradation_strategies = {}
         self._default_cabin = None
-        self._default_degredation_strategy = None
+        self._default_degradation_strategy = None
 
-    def add_cabin(self, cabin, degredation_strategy=None, ignore_if_exists=False):
+    def add_cabin(self, cabin, degradation_strategy=None, ignore_if_exists=False):
         cabin_name = cabin.get_name()
         if cabin_name in self._cabins:
             if ignore_if_exists:
                 return self
-            raise RuntimeError("cabin: %s already exists" % cabin_name)
+            raise RuntimeError("cabin %s already exists", cabin_name)
         self._cabins[cabin_name] = cabin
-        self._degredation_strategies[cabin_name] = degredation_strategy
+        self._degradation_strategies[cabin_name] = degradation_strategy
         return self
 
-    def set_default_cabin(self, cabin, degredation_strategy=None):
+    def set_default_cabin(self, cabin, degradation_strategy=None):
         self._default_cabin = cabin
-        self._default_degredation_strategy = degredation_strategy
+        self._default_degradation_strategy = degradation_strategy
         return self
 
     def push_into_cabin(self, cabin_name):
         cabin = self._cabins.get(cabin_name, self._default_cabin)
-        if cabin == None:
-            raise RuntimeError("cabin: %s does not exist" % cabin_name)
+        if cabin is None:
+            raise RuntimeError("cabin %s not exists" % cabin_name)
 
         def _inner(f):
-            def _innest(*a, **kw):
+            def _real_logic(*a, **kw):
                 steamboat_async_result = AsyncResult()
                 steamboat_async_result.set_time_info("putted_into_steamboat_at")
                 cabin_async_result = cabin.submit_task(f, *a, **kw)
@@ -44,9 +45,11 @@ class SteamBoat(object):
                     cabin_name,
                     f,
                     a,
-                    kw))
+                    kw,
+                    True,
+                    True))
                 return steamboat_async_result
-            return _innest
+            return _real_logic
         return _inner
 
     def submit_task(self, cabin_name, f, *a, **kw):
@@ -58,19 +61,36 @@ class SteamBoat(object):
                        f,
                        a,
                        kw,
+                       set_running_mask,
+                       execute_degradation,
                        cabin_async_result):
-        steamboat_async_result.update_time_info(cabin_async_result.time_info)
+        if set_running_mask:
+            try:
+                if not steamboat_async_result.set_running_or_notify_cancel():
+                    return
+            except RuntimeError:
+                return
+
         steamboat_async_result.set_time_info("left_steamboat_at")
+        steamboat_async_result.update_time_info(cabin_async_result.time_info)
+
+        if cabin_async_result.cancelled():
+            steamboat_async_result.set_exception(RuntimeError("unreachable"))
+            return
 
         exception = cabin_async_result.exception()
-        if exception == None:
+        if exception is None:
             steamboat_async_result.set_result(cabin_async_result.result())
             return
 
-        ds = self._degredation_strategies.get(
+        if not execute_degradation:
+            steamboat_async_result.set_exception(exception)
+            return
+
+        ds = self._degradation_strategies.get(
             cabin_name,
-            self._default_degredation_strategy)
-        if ds == None:
+            self._default_degradation_strategy)
+        if ds is None:
             steamboat_async_result.set_exception(exception)
             return
 
@@ -82,14 +102,24 @@ class SteamBoat(object):
             method = ds.on_window_half_open
         elif isinstance(exception, WindowClosedError):
             method = ds.on_window_closed
-        elif isinstance(exception, TimeoutReached):
+        elif isinstance(exception, TimeoutReachedError):
             method = ds.on_timeout_reached
         else:
             method = ds.on_exception
             args = (exception, ) + args
 
-        try:
-            steamboat_async_result.set_result(method(*args))
-        except Exception as ex:
-            steamboat_async_result.set_exception(ex)
-
+        cabin = self._cabins.get(cabin_name, self._default_cabin)
+        if cabin is None:
+            steamboat_async_result.set_exception(RuntimeError("unreachable"))
+            return
+        degradation_async_result = cabin.submit_task(method, *args)
+        degradation_async_result.add_done_callback(partial(
+            self._done_callback,
+            steamboat_async_result,
+            cabin_name,
+            method,
+            args,
+            {},
+            False,
+            False
+        ))

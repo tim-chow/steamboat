@@ -2,9 +2,11 @@
 
 from Queue import Queue, Full
 import time
-import requests
+import random
+
 from steamboat.thread_pool_executor import ThreadPoolExecutor
 from example_base import *
+
 
 def create_executor():
     # 创建Executor
@@ -17,28 +19,33 @@ def create_executor():
         reject_handler=reject_handler)
     return tpe
 
+
 def test():
     tpe = create_executor()
     cabin = create_cabin(tpe)
-    steamboat = create_steamboat(cabin, TestDegredationStrategy())
+    steamboat = create_steamboat(cabin, TestDegradationStrategy())
 
     @steamboat.push_into_cabin("cabin")
     def download(url):
-        resp = requests.get(url)
-        LOGGER.info("status code is: %d" % resp.status_code)
+        t = random.random()
+        time.sleep(t)
+        LOGGER.info("downloading %s using %fs", url, t)
 
-    url = "http://n.sinaimg.cn/test/320/w640h480/20190429/aabb-hwfpcxm9388795.jpg"
+    url = "https://www.timd.cn/"
     ars = []
     for i in range(100):
         ar = download(url)
         ars.append(ar)
         time.sleep(0.05)
     for ar in ars:
-        ar.result()
+        try:
+            ar.result()
+        except:
+            LOGGER.error(ar.exception())
         LOGGER.info(ar.time_info)
     tpe.shutdown()
     cabin.shutdown()
 
+
 if __name__ == "__main__":
     test()
-

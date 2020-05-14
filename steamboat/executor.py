@@ -4,22 +4,23 @@ import time
 from abc import ABCMeta, abstractmethod
 import itertools
 import threading
+
 from concurrent.futures import Future
 
-__all__ = ["BaseError", "ShutedDownError", "AsyncResult", "TaskItem", "Executor"]
+__all__ = ["BaseError", "ShutDownError", "AsyncResult", "TaskItem", "Executor"]
 
 
-class BaseError(Exception):
+class BaseError(StandardError):
     """
     异常类的基类
     """
     pass
 
 
-class ShutedDownError(BaseError):
+class ShutDownError(BaseError):
     """
-    当Executor正在关闭或已经关闭时，向其中提交任务，会引发该异常；
-    在关闭Executor时，尚未完成的Futures，也会被设置为该异常。
+    当 Executor 正在关闭或已经关闭时，向其中提交任务，会引发该异常；
+    在关闭 Executor 时，尚未完成的 Future 也会被设置为该异常
     """
     pass
 
@@ -28,14 +29,14 @@ class AsyncResult(Future):
     counter = itertools.count().next
     lock = threading.Lock()
 
-    def __init__(self, deadline=None, *a, **kw):
-        super(self.__class__, self).__init__(*a, **kw)
+    def __init__(self, deadline=None):
+        Future.__init__(self)
         self._time_info = {}
-        self._ident = self.generate_ident()
+        self._id = self.generate_id()
         self._deadline = deadline
 
     @classmethod
-    def generate_ident(cls):
+    def generate_id(cls):
         with cls.lock:
             return cls.counter()
 
@@ -53,7 +54,7 @@ class AsyncResult(Future):
 
     @property
     def ident(self):
-        return self._ident
+        return self._id
 
     @property
     def deadline(self):
@@ -68,9 +69,9 @@ class AsyncResult(Future):
             return 1
         if obj.deadline == self.deadline:
             return 0
-        if obj.deadline == None:
+        if obj.deadline is None:
             return -1
-        if self.deadline == None:
+        if self.deadline is None:
             return 1
         if obj.deadline < self.deadline:
             return 1
@@ -79,14 +80,14 @@ class AsyncResult(Future):
 
 class TaskItem(object):
     """
-    每个task item包含：
+    每个 task item 包含：
         可调用对象，
         元组参数，
         关键字参数，
-        保存任务执行结果的AsyncResult对象
+        用于保存任务执行结果的 AsyncResult 对象
     """
-    def __init__(self, function, args, kwargs, async_result):
-        self._function = function
+    def __init__(self, func, args, kwargs, async_result):
+        self._function = func
         self._args = args
         self._kwargs = kwargs
         self._async_result = async_result
@@ -112,10 +113,9 @@ class Executor(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def submit_task(self, function, *args, **kwargs):
+    def submit_task(self, func, *args, **kwargs):
         pass
 
     @abstractmethod
     def shutdown(self, wait_time=None):
         pass
-

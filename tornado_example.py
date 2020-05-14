@@ -1,13 +1,15 @@
 # coding: utf8
 
+import time
+import random
+
 from tornado.ioloop import IOLoop
 from tornado.queues import Queue, QueueFull
 from tornado.gen import coroutine, sleep
-from tornado.httpclient import AsyncHTTPClient
+
 from steamboat.tornado_coroutine_executor import TornadoCoroutineExecutor
 from example_base import *
 
-# AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
 
 def create_executor():
     # 创建Executor
@@ -20,20 +22,21 @@ def create_executor():
         reject_handler=reject_handler)
     return tce
 
+
 @coroutine
 def test():
     tce = create_executor()
     cabin = create_cabin(tce)
-    steamboat = create_steamboat(cabin, TestDegredationStrategy())
+    steamboat = create_steamboat(cabin, TestDegradationStrategy())
 
     @steamboat.push_into_cabin("cabin")
     @coroutine
     def download(url):
-        client = AsyncHTTPClient()
-        resp = yield client.fetch(url)
-        LOGGER.info("status code is: %d" % resp.code)
+        t = random.random()
+        time.sleep(t)
+        LOGGER.info("downloading %s using %fs", url, t)
 
-    url = "http://n.sinaimg.cn/test/320/w640h480/20190429/aabb-hwfpcxm9388795.jpg"
+    url = "https://www.timd.cn/"
     ars = []
     for i in range(100):
         ar = download(url)
@@ -47,7 +50,7 @@ def test():
     LOGGER.info("stop IOLoop")
     IOLoop.instance().stop()
 
+
 if __name__ == "__main__":
     test()
     IOLoop.instance().start()
-

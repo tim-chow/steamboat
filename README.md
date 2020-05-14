@@ -29,8 +29,7 @@ steamboat支持：
 
     用来执行提交给Cabin的任务。Executor是线程池、Tornado协程池等。Executor决定了Cabin并发处理请求的能力
 
-* DegredationStrategy
+* DegradationStrategy
 
-  每个Cabin对应一个DegredationStrategy。当SteamBoat向Cabin提交请求失败时、请求被熔断时、请求处理过程中出现异常时，SteamBoat会调用该Cabin所对应的DegredationStrategy的相应方法，对请求进行降级处理，它实现降级的基础
-
+  每个Cabin对应一个DegradationStrategy。当SteamBoat向Cabin提交请求失败时、请求被熔断时、请求处理过程中出现异常时，SteamBoat会调用该Cabin所对应的DegradationStrategy的相应方法，对请求进行降级处理，它实现降级的基础
 

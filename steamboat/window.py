@@ -3,7 +3,7 @@
 import threading
 
 
-class BaseError(Exception):
+class BaseError(StandardError):
     """
     异常类的基类
     """
@@ -25,9 +25,9 @@ class WindowStatus(object):
         半开
         关闭
     """
-    OPEN = 1
-    HALF_OPEN = 2
-    CLOSED = 3
+    OPEN      = 0b1
+    HALF_OPEN = 0b10
+    CLOSED    = 0b100
 
 
 class Window(object):
@@ -136,23 +136,23 @@ class Window(object):
                 # 当失败率达到阈值的时候，窗口进入到CLOSED状态
                 if failure_ratio >= self._failure_ratio_threshold and (
                         self._failure_count_threshold is None or
-                            self._failure_count >= self._failure_count_threshold):
+                        self._failure_count >= self._failure_count_threshold):
                     self._enter_into_close_status(position)
                     return
             elif status == WindowStatus.HALF_OPEN:
                 # 当失败率达到阈值的时候，窗口进入到CLOSED状态
                 if failure_ratio >= self._failure_ratio_threshold and (
                         self._half_failure_count_threshold is None or
-                            self._failure_count >= self._half_failure_count_threshold):
+                        self._failure_count >= self._half_failure_count_threshold):
                     self._enter_into_close_status(position)
                     return
 
                 # 检查窗口是否应该恢复到打开状态
-                if self._recovery_ratio_threshold == None or (
-                        success_ratio < self._recovery_ratio_threshold):
+                if self._recovery_ratio_threshold is None or \
+                        success_ratio < self._recovery_ratio_threshold:
                     return
-                if self._recovery_count_threshold == None or (
-                        self._success_count >= self._recovery_count_threshold):
+                if self._recovery_count_threshold is None or \
+                        self._success_count >= self._recovery_count_threshold:
                     self._enter_into_open_status(position)
                     return
 
@@ -188,4 +188,3 @@ class Window(object):
         return self._success_count + \
             self._failure_count + \
             self._timeout_count
-

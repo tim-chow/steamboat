@@ -6,13 +6,13 @@ import random
 
 from steamboat.steamboat import SteamBoat
 from steamboat.cabin import CabinBuilder
-from steamboat.degredation_strategy import DegredationStrategy
+from steamboat.degradation_strategy import DegradationStrategy
 from steamboat.thread_pool_executor import ThreadPoolExecutor
 
 LOGGER = logging.getLogger(__name__)
 
 
-class TestDegredationStrategy(DegredationStrategy):
+class TestDegradationStrategy(DegradationStrategy):
     def on_submit_task_error(self, exc, f, a, kw):
         LOGGER.error("submit task error: %s(%s)" % (exc.__class__, str(exc)))
 
@@ -29,7 +29,7 @@ class TestDegredationStrategy(DegredationStrategy):
             % (f.__name__, a, kw))
 
     def on_exception(self, exc, f, a, kw):
-        LOGGER.error("expcetion: [%s] was raised while invoking %s(*%s, **%s)"
+        LOGGER.error("exception: [%s] was raised while invoking %s(*%s, **%s)"
             % (exc, f.__name__, a, kw))
 
 
@@ -40,7 +40,7 @@ class SteamBoatTest(TestCase):
         self._thread_pool_executor = ThreadPoolExecutor(
             3, Queue(2), reject_handler)
 
-        strategy = TestDegredationStrategy()
+        strategy = TestDegradationStrategy()
 
         cabin = CabinBuilder() \
             .with_name("cabin") \
@@ -54,10 +54,12 @@ class SteamBoatTest(TestCase):
             .build()
         steamboat = SteamBoat()
         steamboat.set_default_cabin(cabin, strategy)
+        self._cabin = cabin
         self._steamboat = steamboat
 
     def tearDown(self):
         self._thread_pool_executor.shutdown()
+        self._cabin.shutdown()
 
     def testSteamBoat(self):
         @self._steamboat.push_into_cabin("cabin")
@@ -71,18 +73,20 @@ class SteamBoatTest(TestCase):
         for f in fs:
             exc = f.exception()
             if exc is not None:
-                LOGGER.error(exc)
+                LOGGER.error("%s" % exc)
             else:
-                LOGGER.info(f.result())
+                LOGGER.info("%s", f.result())
 
-        ar = self._steamboat.submit_task("cabin",
+        ar = self._steamboat.submit_task(
+            "cabin",
             lambda : time.sleep(random.random()))
         ar.result()
         LOGGER.info(ar.time_info)
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG, 
-        format="[%(asctime)s] [%(filename)s:%(lineno)d] %(msg)s",
-        datefmt="%F %T")
-    main()
 
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="[%(asctime)s] [%(filename)s:%(lineno)d] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S")
+    main()

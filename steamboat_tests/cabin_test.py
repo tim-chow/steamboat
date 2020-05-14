@@ -12,7 +12,7 @@ LOGGER = logging.getLogger(__name__)
 
 class CabinTest(TestCase):
     def setUp(self):
-        def reject_handler(queue, item):
+        def reject_handler(queue, task_item):
             raise Full
 
         self._thread_pool_executor = ThreadPoolExecutor(
@@ -45,7 +45,7 @@ class CabinTest(TestCase):
 
     def testCabin(self):
         def err_func(count):
-            raise RuntimeError("err_func: %d" % count)
+            raise RuntimeError("err func %d" % count)
 
         def func(count):
             return "this is %d" % count
@@ -80,9 +80,10 @@ class CabinTest(TestCase):
         self._thread_pool_executor.shutdown()
         self._cabin.shutdown()
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG, 
-        format="[%(asctime)s] [%(filename)s:%(lineno)d] %(msg)s",
-        datefmt="%F %T")
-    main()
 
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="[%(asctime)s] [%(filename)s:%(lineno)d] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S")
+    main()

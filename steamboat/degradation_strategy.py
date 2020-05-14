@@ -1,9 +1,7 @@
-# coding: utf8
-
 from abc import ABCMeta, abstractmethod
 
 
-class DegredationStrategy(object):
+class DegradationStrategy(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
@@ -25,4 +23,3 @@ class DegredationStrategy(object):
     @abstractmethod
     def on_exception(self, exc, func, a, kw):
         pass
-
